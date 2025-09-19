@@ -102,7 +102,7 @@ find_package(xsimd CONFIG REQUIRED)
 
 # Setup miniaudio
 # ------------------------------------------------------------------------------
-find_path(MINIAUDIO_INCLUDE_DIRS "miniaudio.h")
+find_package(miniaudio CONFIG REQUIRED)
 
 # Check what instruction sets the current host supports.
 include(DetectCPUArchitecture)
@@ -487,7 +487,6 @@ endif ()
 include_directories(src
     include
     ${AM_FLATBUFFERS_GENERATED_INCLUDES_DIR}
-    ${MINIAUDIO_INCLUDE_DIRS}
 )
 
 add_library(Static STATIC ${SA_SOURCE})
@@ -516,7 +515,7 @@ foreach (build_type ${AM_BUILDSYSTEM_TYPE})
     target_compile_definitions(${build_type} PUBLIC "$<$<CONFIG:RELEASE>:AM_NO_ASSERTS>")
 
     target_link_libraries(${build_type}
-        PRIVATE xsimd
+        PRIVATE xsimd miniaudio
     )
 
     add_dependencies(${build_type}
