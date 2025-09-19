@@ -106,6 +106,10 @@ find_package(xsimd CONFIG REQUIRED)
 # ------------------------------------------------------------------------------
 find_package(miniaudio CONFIG REQUIRED)
 
+# Setup dylib
+# ------------------------------------------------------------------------------
+find_package(dylib CONFIG REQUIRED)
+
 # Check what instruction sets the current host supports.
 include(DetectCPUArchitecture)
 am_buildsystem_get_runnable_archs(NATIVE_ARCHS)
@@ -514,7 +518,7 @@ add_custom_target(amplitude_build_binary_schemas
     target_compile_definitions(AmplitudeAudioSDK PUBLIC "$<$<CONFIG:RELEASE>:AM_NO_ASSERTS>")
 
     target_link_libraries(AmplitudeAudioSDK
-        PRIVATE xsimd miniaudio
+        PRIVATE xsimd miniaudio dylib
     )
 
     add_dependencies(AmplitudeAudioSDK
