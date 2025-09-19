@@ -26,6 +26,7 @@ option(BUILD_ASSETS "Build example assets" OFF)
 option(BUILD_SAMPLES "Build samples" OFF)
 option(BUILD_TOOLS "Build official CLI tools" ON)
 option(UNIT_TESTS "Enable Unit Testing" OFF)
+option(BUILD_SHARED_LIB "Build shared library" ON)
 
 if(UNIT_TESTS)
     list(APPEND VCPKG_MANIFEST_FEATURES "tests")
@@ -490,55 +491,51 @@ include_directories(src
     ${AM_FLATBUFFERS_GENERATED_INCLUDES_DIR}
 )
 
-add_library(Static STATIC ${SA_SOURCE})
-target_compile_definitions(Static PUBLIC AM_BUILDSYSTEM_STATIC)
-
-add_library(Shared SHARED ${SA_SOURCE})
-target_compile_definitions(Shared PUBLIC AM_BUILDSYSTEM_SHARED)
+if (BUILD_SHARED_LIB)
+    add_library(AmplitudeAudioSDK SHARED ${SA_SOURCE})
+    target_compile_definitions(AmplitudeAudioSDK PUBLIC AM_BUILDSYSTEM_STATIC)
+else()
+    add_library(AmplitudeAudioSDK STATIC ${SA_SOURCE})
+    target_compile_definitions(AmplitudeAudioSDK PUBLIC AM_BUILDSYSTEM_SHARED)
+endif()
 
 add_custom_target(amplitude_build_binary_schemas
     COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/build_schemas.py --output ${CMAKE_CURRENT_SOURCE_DIR}/schemas
 )
 
-set(AM_BUILDSYSTEM_TYPE "Static" "Shared")
-
-foreach (build_type ${AM_BUILDSYSTEM_TYPE})
-    string(TOLOWER ${build_type} build_type_l)
-
-    set_target_properties(${build_type}
+    set_target_properties(AmplitudeAudioSDK
         PROPERTIES
             OUTPUT_NAME ${PROJECT_NAME}
-            ARCHIVE_OUTPUT_DIRECTORY ${build_type_l}
+            ARCHIVE_OUTPUT_DIRECTORY amplitudeaudiosdk
     )
 
-    target_compile_definitions(${build_type} PRIVATE AM_BUILDSYSTEM_BUILDING_AMPLITUDE)
-    target_compile_definitions(${build_type} PUBLIC "$<$<CONFIG:RELEASE>:AM_NO_MEMORY_STATS>")
-    target_compile_definitions(${build_type} PUBLIC "$<$<CONFIG:RELEASE>:AM_NO_ASSERTS>")
+    target_compile_definitions(AmplitudeAudioSDK PRIVATE AM_BUILDSYSTEM_BUILDING_AMPLITUDE)
+    target_compile_definitions(AmplitudeAudioSDK PUBLIC "$<$<CONFIG:RELEASE>:AM_NO_MEMORY_STATS>")
+    target_compile_definitions(AmplitudeAudioSDK PUBLIC "$<$<CONFIG:RELEASE>:AM_NO_ASSERTS>")
 
-    target_link_libraries(${build_type}
+    target_link_libraries(AmplitudeAudioSDK
         PRIVATE xsimd miniaudio
     )
 
-    add_dependencies(${build_type}
+    add_dependencies(AmplitudeAudioSDK
         generated_includes
         amplitude_build_binary_schemas
     )
 
     if (AM_PLATFORM_UNIX)
-        target_link_libraries(${build_type} PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+        target_link_libraries(AmplitudeAudioSDK PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
     endif ()
 
     if (AM_PLATFORM_APPLE)
-        target_link_libraries(${build_type} PUBLIC ${ACCELERATE_FRAMEWORK})
-        target_compile_definitions(${build_type} PUBLIC AM_FFT_APPLE_ACCELERATE)
+        target_link_libraries(AmplitudeAudioSDK PUBLIC ${ACCELERATE_FRAMEWORK})
+        target_compile_definitions(AmplitudeAudioSDK PUBLIC AM_FFT_APPLE_ACCELERATE)
     endif ()
 
     if (AM_PLATFORM_ANDROID)
-        target_link_libraries(${build_type} PUBLIC android log)
+        target_link_libraries(AmplitudeAudioSDK PUBLIC android log)
     endif ()
 
-    am_apply_detected_platform_defines(${build_type})
-endforeach ()
+    am_apply_detected_platform_defines(AmplitudeAudioSDK)
 
 if (BUILD_TOOLS)
     add_subdirectory(tools/amac)
@@ -580,57 +577,3 @@ if (UNIT_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif ()
-
-# #####################################################
-# INSTALL
-
-install(
-    TARGETS Static
-    ARCHIVE DESTINATION ${AM_LIB_DESTINATION}/static
-    INCLUDES DESTINATION ${AM_INC_DESTINATION}
-)
-
-install(
-    TARGETS Shared
-    ARCHIVE DESTINATION ${AM_LIB_DESTINATION}/shared
-    LIBRARY DESTINATION ${AM_LIB_DESTINATION}/shared
-    RUNTIME DESTINATION ${AM_LIB_DESTINATION}/shared
-    INCLUDES DESTINATION ${AM_INC_DESTINATION}
-)
-
-install(
-    FILES $<TARGET_RUNTIME_DLLS:Shared>
-    DESTINATION ${AM_LIB_DESTINATION}/shared
-)
-
-install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-    DESTINATION ${AM_INC_DESTINATION}
-    FILES_MATCHING PATTERN "*.h*"
-)
-
-install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/schemas/
-    DESTINATION ${AM_SHM_DESTINATION}
-    FILES_MATCHING PATTERN "*.bfbs"
-)
-
-install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts/
-    DESTINATION ${AM_PYS_DESTINATION}
-    FILES_MATCHING
-        PATTERN "*.py"
-        PATTERN "build_schemas.py" EXCLUDE
-        PATTERN "__pycache__" EXCLUDE
-)
-
-install(
-    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/cmake/
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/cmake"
-    FILES_MATCHING
-        PATTERN "*.cmake"
-        PATTERN "CodeCoverage.cmake" EXCLUDE
-        PATTERN "DetectCPUArchitecture.cmake" EXCLUDE
-)
-
-export(PACKAGE ${PROJECT_NAME})
